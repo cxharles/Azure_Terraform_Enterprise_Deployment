@@ -1,37 +1,12 @@
-# We strongly recommend using the required_providers block to set the
-# Azure Provider source and version being used.
-
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.107"
-    }
-  }
-}
-
-provider "azurerm" {
-  features {}
-}
-
-terraform { 
-  cloud { 
-    
-    organization = "cxharles" 
-
-    workspaces { 
-      name = "cli-test" 
-    } 
-  } 
-}
-
-# You can use the azurerm_client_config data resource to dynamically
-# extract connection settings from the provider configuration.
+# Get the current client configuration from the AzureRM provider.
+# This is used to populate the root_parent_id variable with the
+# current Tenant ID used as the ID for the "Tenant Root Group"
+# Management Group.
 
 data "azurerm_client_config" "core" {}
 
-# Call the caf-enterprise-scale module directly from the Terraform Registry
-# pinning to the latest version
+# Declare the Azure landing zones Terraform module
+# and provide a base configuration.
 
 module "enterprise_scale" {
   source  = "Azure/caf-enterprise-scale/azurerm"
@@ -48,4 +23,35 @@ module "enterprise_scale" {
   root_parent_id = data.azurerm_client_config.core.tenant_id
   root_id        = var.root_id
   root_name      = var.root_name
+  library_path   = "${path.root}/lib"
+
+  custom_landing_zones = {
+    "${var.root_id}-online-example-1" = {
+      display_name               = "${upper(var.root_id)} Online Example 1"
+      parent_management_group_id = "${var.root_id}-landing-zones"
+      subscription_ids           = []
+      archetype_config = {
+        archetype_id   = "customer_online"
+        parameters     = {}
+        access_control = {}
+      }
+    }
+    "${var.root_id}-online-example-2" = {
+      display_name               = "${upper(var.root_id)} Online Example 2"
+      parent_management_group_id = "${var.root_id}-landing-zones"
+      subscription_ids           = []
+      archetype_config = {
+        archetype_id = "customer_online"
+        parameters = {
+          Deny-Resource-Locations = {
+            listOfAllowedLocations = ["eastus", ]
+          }
+          Deny-RSG-Locations = {
+            listOfAllowedLocations = ["eastus", ]
+          }
+        }
+        access_control = {}
+      }
+    }
+  }
 }
